@@ -55,7 +55,7 @@ if __name__ == "__main__":
     Base.check_user()
     Base.check_platform()
 
-    parser = ArgumentParser(description='Setup Apache2 proxy')
+    parser = ArgumentParser(description='Setup Apache2 fishing proxy')
     parser.add_argument('-u', '--url', type=str, help='Set URL for proxy', default='http://test.com')
     parser.add_argument('-C', '--country', type=str, help='Set Country for SSL cert (default: RU)',
                         default='RU')
