@@ -265,20 +265,19 @@ if __name__ == "__main__":
                                     "\n\t</VirtualHost>" +
                                     "\n</IfModule>\n")
 
-    if schema == "http":
-        with open(args.http_config, "r") as http_config_file:
-            print Base.c_info + "Config: " + args.http_config + ": "
-            print http_config_file.read()
+    with open(args.http_config, "r") as http_config_file:
+        print Base.c_info + "Config: " + args.http_config + ": "
+        print http_config_file.read()
 
     if schema == "https":
-        with open(args.http_config, "r") as http_config_file:
-            print Base.c_info + "Config: " + args.http_config + ": "
-            print http_config_file.read()
         with open(args.https_config, "r") as https_config_file:
             print Base.c_info + "Config: " + args.https_config + ": "
             print https_config_file.read()
 
     print Base.c_info + "Apache2 http sites config: " + args.http_config
-    print Base.c_info + "Apache2 https sites config: " + args.https_config
+
+    if schema == "https":
+        print Base.c_info + "Apache2 https sites config: " + args.https_config
+
     print Base.c_info + "Restart Apache2 server"
     os.system("/etc/init.d/apache2 restart")
