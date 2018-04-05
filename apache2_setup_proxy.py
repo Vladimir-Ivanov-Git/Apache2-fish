@@ -136,7 +136,8 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--beef', type=str,
                         help='Set path to BeeF script (example: "http://192.168.0.1/beef.js")', default=None)
     parser.add_argument('-n', '--leak_ntlm', type=str,
-                        help='Set IP or domain for leak NTLM hash (example: "192.168.0.1")', default=None)
+                        help='Set IP address or domain name of the host on which responder is started to receive ' +
+                             'NTLM hashes (example: "192.168.0.1" or "evil.com")', default=None)
     parser.add_argument('-c', '--http_config', type=str,
                         help='Set path to Apache2 http site config '
                              '(default: /etc/apache2/sites-available/000-default.conf)',
@@ -211,9 +212,9 @@ if __name__ == "__main__":
 
         http_config_file.write("\n\tSecRuleEngine On" +
                                "\n\tSecAuditEngine on" +
-                               "\n\tSecAuditLog ${APACHE_LOG_DIR}/http." + domain + "-audit.log" +
-                               "\n\tErrorLog ${APACHE_LOG_DIR}/http." + domain + "-error.log" +
-                               "\n\tCustomLog ${APACHE_LOG_DIR}/http." + domain + "-access.log combined" +
+                               "\n\tSecAuditLog ${APACHE_LOG_DIR}/http-" + domain + "-audit.log" +
+                               "\n\tErrorLog ${APACHE_LOG_DIR}/http-" + domain + "-error.log" +
+                               "\n\tCustomLog ${APACHE_LOG_DIR}/http-" + domain + "-access.log combined" +
                                "\n\tSecRequestBodyAccess on" +
                                "\n\tSecAuditLogParts ABIFHZ" +
                                "\n\tSecDefaultAction \"nolog,noauditlog,allow,phase:2\"" +
@@ -268,9 +269,9 @@ if __name__ == "__main__":
 
             https_config_file.write("\n\t\tSecRuleEngine On" +
                                     "\n\t\tSecAuditEngine on" +
-                                    "\n\t\tSecAuditLog ${APACHE_LOG_DIR}/https." + domain + "-audit.log" +
-                                    "\n\t\tErrorLog ${APACHE_LOG_DIR}/https." + domain + "-error.log" +
-                                    "\n\t\tCustomLog ${APACHE_LOG_DIR}/https." + domain + "-access.log combined" +
+                                    "\n\t\tSecAuditLog ${APACHE_LOG_DIR}/https-" + domain + "-audit.log" +
+                                    "\n\t\tErrorLog ${APACHE_LOG_DIR}/https-" + domain + "-error.log" +
+                                    "\n\t\tCustomLog ${APACHE_LOG_DIR}/https-" + domain + "-access.log combined" +
                                     "\n\t\tSecRequestBodyAccess on" +
                                     "\n\t\tSecAuditLogParts ABIFHZ" +
                                     "\n\t\tSecDefaultAction \"nolog,noauditlog,allow,phase:2\"" +
