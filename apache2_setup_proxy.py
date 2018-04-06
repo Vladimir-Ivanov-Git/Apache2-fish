@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from platform import system, release
 from sys import exit
 from pwd import getpwuid
+from re import match
 import os
 
 
@@ -109,6 +110,53 @@ class Base:
             os.system("a2enmod headers > /dev/null 2>&1")
 
 
+def config_parse(config_file_name, protocol="http"):
+    site_lines = []
+    sites = {}
+
+    with open(config_file_name, "r") as config_file:
+        config_file_lines = config_file.readlines()
+
+    if len(config_file_lines) > 0:
+        for index in range(len(config_file_lines)):
+            if protocol == "http":
+                if "<VirtualHost " in config_file_lines[index]:
+                    site_lines.append(index)
+            if protocol == "https":
+                if "<IfModule mod_ssl.c>" in config_file_lines[index]:
+                    site_lines.append(index)
+
+    if len(site_lines) > 0:
+        for index in range(len(site_lines)):
+            start_position = site_lines[index] - 1
+            try:
+                stop_position = site_lines[index + 1] - 1
+            except IndexError:
+                stop_position = len(config_file_lines)
+
+            for site_line_index in range(start_position, stop_position, 1):
+                re = match(r"^[ |\t|]+ServerName[ |\t]+(?P<host>[A-Za-z0-9\-\.]+)[ |\t|\n|]$",
+                           config_file_lines[site_line_index])
+                if re is not None:
+                    sites[re.group('host')] = {"start": start_position, "stop": stop_position}
+
+    return sites
+
+
+def delete_site(config_file_name, server_name, protocol="http"):
+    sites = config_parse(config_file_name, protocol)
+
+    with open(config_file_name, "r") as config_file:
+        config_file_lines = config_file.readlines()
+
+    if len(sites.keys()) > 0:
+        for site in sites.keys():
+            if site == server_name:
+                del config_file_lines[sites[site]["start"]:sites[site]["stop"]]
+                with open(config_file_name, "w") as config_file:
+                    config_file.writelines(config_file_lines)
+
+
 if __name__ == "__main__":
     Base = Base()
 
@@ -122,6 +170,8 @@ if __name__ == "__main__":
     parser = ArgumentParser(description='Setup Apache2 fishing proxy')
     parser.add_argument('-u', '--url', type=str, help='Set URL for proxy (example: "http://test.com")',
                         default='http://test.com')
+    parser.add_argument('-d', '--delete_url', type=str, help='Set URL to remove from the Apache2 configuration '
+                                                             '(example: "http://test.com")',  default=None)
     parser.add_argument('-C', '--country', type=str, help='Set Country for SSL cert (default: RU)',
                         default='RU')
     parser.add_argument('-S', '--state', type=str, help='Set State for SSL cert (default: Moscow)',
@@ -168,10 +218,14 @@ if __name__ == "__main__":
     schema = "http"
     domain = "test.com"
 
-    try:
-        schema = args.url.split("://")[0]
-        domain = args.url.split("://")[1]
-    except IndexError:
+    if args.delete_url is not None:
+        args.url = args.delete_url
+
+    re = match(r"^(?P<schema>http|https)\:\/\/(?P<host>[A-Za-z0-9\-\.]+)$", args.url)
+    if re is not None:
+        schema = re.group('schema')
+        domain = re.group('host')
+    else:
         print Base.c_error + "Bad url: " + args.url
         print Base.c_info + "Normal url: http://test.com"
         exit(1)
@@ -183,6 +237,30 @@ if __name__ == "__main__":
         print Base.c_error + "Bad schema: " + str(schema)
         print Base.c_info + "Normal schema: http or https"
         exit(1)
+
+    if args.delete_url is not None:
+        os.system("/etc/init.d/apache2 stop")
+        delete_site(args.http_config, domain)
+        if schema == "https":
+            delete_site(args.https_config, domain, schema)
+
+        with open(args.http_config, "r") as http_config_file:
+            print Base.c_info + "HTTP sites config: " + args.http_config + ": "
+            print http_config_file.read()
+
+        if schema == "https":
+            with open(args.https_config, "r") as https_config_file:
+                print Base.c_info + "HTTPS sites config: " + args.https_config + ": "
+                print https_config_file.read()
+
+        os.system("/etc/init.d/apache2 start")
+        exit(0)
+
+    http_sites = config_parse(args.http_config)
+    for site in http_sites.keys():
+        if domain == site:
+            print Base.c_warning + "This site: " + args.url + " already added to the Apache2 configuration file!"
+            exit(0)
 
     if args.organization is None:
         args.organization = domain
@@ -285,12 +363,12 @@ if __name__ == "__main__":
                                     "\n</IfModule>\n")
 
     with open(args.http_config, "r") as http_config_file:
-        print Base.c_info + "Config: " + args.http_config + ": "
+        print Base.c_info + "HTTP sites config: " + args.http_config + ": "
         print http_config_file.read()
 
     if schema == "https":
         with open(args.https_config, "r") as https_config_file:
-            print Base.c_info + "Config: " + args.https_config + ": "
+            print Base.c_info + "HTTPS sites config: " + args.https_config + ": "
             print https_config_file.read()
 
     print Base.c_info + "Apache2 http sites config: " + args.http_config
