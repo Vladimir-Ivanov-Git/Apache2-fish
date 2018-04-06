@@ -187,7 +187,7 @@ if __name__ == "__main__":
                             print Base.cINFO + "[" + creds["user_parameter"] + "] " + \
                                   Base.cSUCCESS + creds["user"] + Base.cEND
                             print Base.cINFO + "[" + creds["password_parameter"] + "] " + \
-                                  Base.cSUCCESS + creds["password"] + Base.cEND
+                                  Base.cSUCCESS + creds["password"] + Base.cEND + "\n"
 
                             credentials_file_name = proto + "-" + server + "-credentials.log"
                             new_credentials = creds["user"] + " " + creds["password"] + "\n"
