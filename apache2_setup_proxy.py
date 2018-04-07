@@ -170,8 +170,10 @@ if __name__ == "__main__":
     parser = ArgumentParser(description='Setup Apache2 fishing proxy')
     parser.add_argument('-u', '--url', type=str, help='Set URL for proxy (example: "http://test.com")',
                         default='http://test.com')
-    parser.add_argument('-d', '--delete_url', type=str, help='Set URL to remove from the Apache2 configuration '
-                                                             '(example: "http://test.com")',  default=None)
+    parser.add_argument('-d', '--delete_site', type=str, help='Set site name to remove from the Apache2 configuration '
+                                                              '(example: "http://test.com")',  default=None)
+    parser.add_argument('-N', '--server_name', type=str, help='Set Server name for proxy (example: "test.com")',
+                        default=None)
     parser.add_argument('-C', '--country', type=str, help='Set Country for SSL cert (default: RU)',
                         default='RU')
     parser.add_argument('-S', '--state', type=str, help='Set State for SSL cert (default: Moscow)',
@@ -217,9 +219,10 @@ if __name__ == "__main__":
 
     schema = "http"
     domain = "test.com"
+    server_name = "test.com"
 
-    if args.delete_url is not None:
-        args.url = args.delete_url
+    if args.delete_site is not None:
+        args.url = args.delete_site
 
     re = match(r"^(?P<schema>http|https)\:\/\/(?P<host>[A-Za-z0-9\-\.]+)$", args.url)
     if re is not None:
@@ -238,7 +241,12 @@ if __name__ == "__main__":
         print Base.c_info + "Normal schema: http or https"
         exit(1)
 
-    if args.delete_url is not None:
+    if args.server_name is None:
+        server_name = domain
+    else:
+        server_name = args.server_name
+
+    if args.delete_site is not None:
         os.system("/etc/init.d/apache2 stop")
         delete_site(args.http_config, domain)
         if schema == "https":
@@ -267,7 +275,7 @@ if __name__ == "__main__":
 
     with open(args.http_config, "a") as http_config_file:
         http_config_file.write("\n\n<VirtualHost *:80>" +
-                               "\n\tServerName " + domain +
+                               "\n\tServerName " + server_name +
                                "\n\tServerAdmin admin@" + domain +
                                "\n\tProxyPass \"/\" \"" + args.url + "/\"" +
                                "\n\tProxyPassReverse \"/\" \"" + args.url + "/\"" +
@@ -332,7 +340,7 @@ if __name__ == "__main__":
         with open(args.https_config, "a") as https_config_file:
             https_config_file.write("\n\n<IfModule mod_ssl.c>" +
                                     "\n\t<VirtualHost _default_:443>" +
-                                    "\n\t\tServerName " + domain +
+                                    "\n\t\tServerName " + server_name +
                                     "\n\t\tServerAdmin admin@" + domain +
                                     "\n\t\tProxyPass \"/\" \"" + args.url + "/\"" +
                                     "\n\t\tProxyPassReverse \"/\" \"" + args.url + "/\"" +
