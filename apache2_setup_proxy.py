@@ -204,6 +204,7 @@ if __name__ == "__main__":
                         default='/etc/apache2/sites-available/default-ssl.conf')
     parser.add_argument('-E', '--erase_conf', action='store_true', help='Erase Apache2 config files')
     parser.add_argument('-D', '--delete_log', action='store_true', help='Delete Apache2 log files')
+    parser.add_argument('-q', '--quit', action='store_true', help='Less output')
     args = parser.parse_args()
 
     if args.erase_conf:
@@ -216,9 +217,9 @@ if __name__ == "__main__":
         exit(0)
 
     if args.delete_log:
-        os.system("/etc/init.d/apache2 stop")
         os.system("find /var/log/apache2/ -type f -exec rm -f {} \;")
         print Base.c_info + "Apache2 log files have been deleted!"
+        os.system("/etc/init.d/apache2 restart")
         exit(0)
 
     schema = "http"
@@ -347,8 +348,9 @@ if __name__ == "__main__":
         os.system("openssl x509 -in /etc/ssl/certs/" + domain + ".pem -noout -text")
 
         if Base.check_file_exist("/etc/ssl/certs/" + domain + ".pem") and Base.check_file_exist("/etc/ssl/private/" + domain + ".key"):
-            print Base.c_info + "SSL cert: /etc/ssl/certs/" + domain + ".pem"
-            print Base.c_info + "SSL key: /etc/ssl/private/" + domain + ".key"
+            if not args.quit:
+                print Base.c_info + "SSL cert: /etc/ssl/certs/" + domain + ".pem"
+                print Base.c_info + "SSL key: /etc/ssl/private/" + domain + ".key"
         else:
             print Base.c_error + "Can not create SSL cert and key"
             exit(1)
@@ -412,19 +414,20 @@ if __name__ == "__main__":
                                     "\n\t</VirtualHost>" +
                                     "\n</IfModule>\n")
 
-    with open(args.http_config, "r") as http_config_file:
-        print Base.c_info + "HTTP sites config: " + args.http_config + ": "
-        print http_config_file.read()
+    if not args.quit:
+        with open(args.http_config, "r") as http_config_file:
+            print Base.c_info + "HTTP sites config: " + args.http_config + ": "
+            print http_config_file.read()
 
-    if schema == "https":
-        with open(args.https_config, "r") as https_config_file:
-            print Base.c_info + "HTTPS sites config: " + args.https_config + ": "
-            print https_config_file.read()
+        if schema == "https":
+            with open(args.https_config, "r") as https_config_file:
+                print Base.c_info + "HTTPS sites config: " + args.https_config + ": "
+                print https_config_file.read()
 
-    print Base.c_info + "Apache2 http sites config: " + args.http_config
+        print Base.c_info + "Apache2 http sites config: " + args.http_config
 
-    if schema == "https":
-        print Base.c_info + "Apache2 https sites config: " + args.https_config
+        if schema == "https":
+            print Base.c_info + "Apache2 https sites config: " + args.https_config
 
     print Base.c_info + "Restart Apache2 server"
     os.system("/etc/init.d/apache2 restart")
