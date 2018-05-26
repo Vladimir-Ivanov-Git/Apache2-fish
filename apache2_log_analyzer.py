@@ -142,39 +142,38 @@ if __name__ == "__main__":
                     proto = log_file["proto"]
 
                     if not args.creds:
-                        if match(r"^(.(?!\.(jpg|jpeg|png|css|gif|ico|js)))*$")
-                            print Base.c_success + "[Request ID] " + request_id
-                            print Base.c_info + "[Client] " + client
-                            print Base.c_info + "[Client port] " + log_file_lines[start_position+1].split(' ')[4]
-                            print Base.c_info + "[Server] " + server
-                            print Base.c_info + "[Proto] " + proto
-                            print Base.c_info + "[Request method] " + request_method
-                            print Base.c_info + "[Request path] " + request_path
+                        print Base.c_success + "[Request ID] " + request_id
+                        print Base.c_info + "[Client] " + client
+                        print Base.c_info + "[Client port] " + log_file_lines[start_position + 1].split(' ')[4]
+                        print Base.c_info + "[Server] " + server
+                        print Base.c_info + "[Proto] " + proto
+                        print Base.c_info + "[Request method] " + request_method
+                        print Base.c_info + "[Request path] " + request_path
 
-                            for index in range(start_position, stop_position, 1):
-                                re = match(r"^User\-Agent\:(| )(?P<user_agent>.*)$", log_file_lines[index])
-                                if re is not None:
-                                    request_user_agent = re.group('user_agent')
+                        for index in range(start_position, stop_position, 1):
+                            re = match(r"^User\-Agent\:(| )(?P<user_agent>.*)$", log_file_lines[index])
+                            if re is not None:
+                                request_user_agent = re.group('user_agent')
 
-                                re = match(r"^Cookie\:(| )(?P<cookie>.*)$", log_file_lines[index])
-                                if re is not None:
-                                    request_cookie = re.group('cookie')
+                            re = match(r"^Cookie\:(| )(?P<cookie>.*)$", log_file_lines[index])
+                            if re is not None:
+                                request_cookie = re.group('cookie')
 
-                                re = match(r"^\-\-" + request_id + "\-C\-\-$", log_file_lines[index])
-                                if re is not None:
-                                    request_data = log_file_lines[index + 1].replace('\n', '')
+                            re = match(r"^\-\-" + request_id + "\-C\-\-$", log_file_lines[index])
+                            if re is not None:
+                                request_data = log_file_lines[index + 1].replace('\n', '')
 
-                                re = match(r"^\-\-" + request_id + "\-F\-\-$", log_file_lines[index])
-                                if re is not None:
-                                    response_status = log_file_lines[index + 1].replace('\n', '')[9:]
+                            re = match(r"^\-\-" + request_id + "\-F\-\-$", log_file_lines[index])
+                            if re is not None:
+                                response_status = log_file_lines[index + 1].replace('\n', '')[9:]
 
-                            if not args.creds:
-                                print Base.c_info + "[User-Agent] " + request_user_agent
-                                if request_cookie != "":
-                                    print Base.c_success + "[Cookie] " + Base.cSUCCESS + request_cookie + Base.cEND
-                                if request_data != "":
-                                    print Base.c_success + "[Request data] " + Base.cSUCCESS + request_data + Base.cEND
-                                print Base.c_info + "[Response Status] " + response_status + "\n"
+                        if not args.creds:
+                            print Base.c_info + "[User-Agent] " + request_user_agent
+                            if request_cookie != "":
+                                print Base.c_success + "[Cookie] " + Base.cSUCCESS + request_cookie + Base.cEND
+                            if request_data != "":
+                                print Base.c_success + "[Request data] " + Base.cSUCCESS + request_data + Base.cEND
+                            print Base.c_info + "[Response Status] " + response_status + "\n"
 
                     analyze_data = [request_path, request_data]
 
