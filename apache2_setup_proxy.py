@@ -351,6 +351,7 @@ if __name__ == "__main__":
 
             os.system("mv " + domain + ".crt /etc/ssl/certs/")
             os.system("mv " + domain + ".key /etc/ssl/private/")
+            os.system("rm " + domain + ".csr")
             os.system("chmod 0600 /etc/ssl/private/" + domain + ".key")
 
             if not args.quit:
