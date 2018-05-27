@@ -341,7 +341,7 @@ if __name__ == "__main__":
     if schema == "https":
         if not Base.check_file_exist("/etc/ssl/certs/" + domain + ".pem") or not Base.check_file_exist("/etc/ssl/private/" + domain + ".key"):
             print Base.c_info + "Create SSL cert and key ..."
-            os.system("openssl req -nodes -new -x509 -days 365 -keyout " + domain + ".key -out " + domain +
+            os.system("openssl req -nodes -newkey rsa:4096 -x509 -days 365 -keyout " + domain + ".key -out " + domain +
                       ".pem " + "-subj '/C=" + args.country + "/ST=" + args.state + "/L=" + args.locality +
                       "/O=" + args.organization + "/OU=" + args.organization_unit + "/CN=" + domain +
                       "' > /dev/null 2>&1")
