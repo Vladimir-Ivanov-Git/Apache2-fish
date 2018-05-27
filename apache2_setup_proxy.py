@@ -339,21 +339,27 @@ if __name__ == "__main__":
             http_config_file.write("\n</VirtualHost>\n")
 
     if schema == "https":
-        if not Base.check_file_exist("/etc/ssl/certs/" + domain + ".pem") or not Base.check_file_exist("/etc/ssl/private/" + domain + ".key"):
+        if not Base.check_file_exist("/etc/ssl/certs/" + domain + ".crt") or not Base.check_file_exist("/etc/ssl/private/" + domain + ".key"):
             print Base.c_info + "Create SSL cert and key ..."
-            os.system("openssl req -nodes -newkey rsa:4096 -x509 -days 365 -keyout " + domain + ".key -out " + domain +
-                      ".pem " + "-subj '/C=" + args.country + "/ST=" + args.state + "/L=" + args.locality +
+            os.system("openssl genrsa -out " + domain + ".key 2048 >/dev/null 2>&1")
+            os.system("openssl req -new -key " + domain + ".key -out " + domain + ".csr " +
+                      "-subj '/C=" + args.country + "/ST=" + args.state + "/L=" + args.locality +
                       "/O=" + args.organization + "/OU=" + args.organization_unit + "/CN=" + domain +
-                      "' > /dev/null 2>&1")
-            os.system("mv " + domain + ".pem /etc/ssl/certs/")
+                      "' >/dev/null 2>&1")
+            os.system("openssl x509 -req -days 365 -in " + domain + ".csr -signkey " + domain + ".key -out " + 
+                      domain + ".crt >/dev/null 2>&1")
+
+            os.system("mv " + domain + ".crt /etc/ssl/certs/")
             os.system("mv " + domain + ".key /etc/ssl/private/")
             os.system("chmod 0600 /etc/ssl/private/" + domain + ".key")
-            if not args.quit:
-                os.system("openssl x509 -in /etc/ssl/certs/" + domain + ".pem -noout -text")
 
-            if Base.check_file_exist("/etc/ssl/certs/" + domain + ".pem") and Base.check_file_exist("/etc/ssl/private/" + domain + ".key"):
+            if not args.quit:
+                os.system("openssl x509 -in /etc/ssl/certs/" + domain + ".crt -noout -text")
+
+            if Base.check_file_exist("/etc/ssl/certs/" + domain + ".crt") and \
+                    Base.check_file_exist("/etc/ssl/private/" + domain + ".key"):
                 if not args.quit:
-                    print Base.c_info + "SSL cert: /etc/ssl/certs/" + domain + ".pem"
+                    print Base.c_info + "SSL cert: /etc/ssl/certs/" + domain + ".crt"
                     print Base.c_info + "SSL key: /etc/ssl/private/" + domain + ".key"
             else:
                 print Base.c_error + "Can not create SSL cert and key"
@@ -413,7 +419,8 @@ if __name__ == "__main__":
                                     "\n\t\tSecRule REQUEST_URI \".*\" \"auditlog\"" +
                                     "\n\t\tSSLEngine On" +
                                     "\n\t\tSSLProxyEngine On" +
-                                    "\n\t\tSSLCertificateFile /etc/ssl/certs/" + domain + ".pem" +
+                                    "\n\t\tSSLProtocol -all +TLSv1 +TLSv1.1 +TLSv1.2" +
+                                    "\n\t\tSSLCertificateFile /etc/ssl/certs/" + domain + ".crt" +
                                     "\n\t\tSSLCertificateKeyFile /etc/ssl/private/" + domain + ".key" +
                                     "\n\t</VirtualHost>" +
                                     "\n</IfModule>\n")
